@@ -15,3 +15,6 @@ Please complete the following tasks. Each task builds on the existing codebase (
 
 - [ ] **Task 4 — Pagination**
   Limit the employee table to 5 rows per page. Add Previous / Next controls and a page indicator. Pagination should work together with search and department filter.
+
+- [ ] **Task 5 — Department Salary Pie Chart**
+  Add a `GET /api/salary-by-department` endpoint that returns the total salary grouped by department. On the frontend, render a pie chart using only pure HTML5 Canvas (no external chart libraries) that visualises each department's share of the total salary. Display the chart on the employee directory page.
