@@ -68,7 +68,6 @@ app.post('/api/employees', (req, res) => {
       ...employee
     });
   } catch (err) {
-    console.log(err)
     switch (err.code) {
       case 'SQLITE_CONSTRAINT_UNIQUE':
         return res.status(409).json({
@@ -88,13 +87,75 @@ app.post('/api/employees', (req, res) => {
 //   Add an "Edit" button on each row that opens a form pre-filled with the employee's current data. 
 //   Implement a `PUT /api/employees/:id` endpoint to save changes.
 app.put('/api/employees/:id', (req, res) => {
-  res.send("NOT IMPLEMENTED: Employee update PUT");
+  const id = req.params.id;
+  const employee = {
+    id,
+    name: req.body.name,
+    department: req.body.department,
+    position: req.body.position,
+    email: req.body.email,
+    phone: req.body.phone,
+    hire_date: req.body.hire_date,
+    salary: req.body.salary
+  };
+  try {
+    const update = db.prepare(`
+      UPDATE employees
+      SET
+        name = @name,
+        department = @department,
+        position = @position,
+        email = @email,
+        phone = @phone,
+        hire_date = @hire_date,
+        salary = @salary
+      WHERE id = @id
+    `);
+
+    const result = update.run(employee);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    res.status(200).json(employee);
+
+  } catch (err) {
+    switch (err.code) {
+      case 'SQLITE_CONSTRAINT_UNIQUE':
+        return res.status(409).json({
+          error: `Unique constraint failed on: ${err.message.split(': ')[1]}`
+        });
+      case 'SQLITE_CONSTRAINT_NOTNULL':
+        return res.status(400).json({
+          error: `Not Null constraint failed`
+        });
+    }
+
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // - [ ] **Task 3 — Delete Employee**
 //   Add a "Delete" button on each row with a confirmation prompt. Implement a `DELETE /api/employees/:id` endpoint to remove the record.
 app.delete('/api/employees/:id', (req, res) => {
-  res.send("NOT IMPLEMENTED: Employee delete DELETE");
+  const id = req.params.id;
+  try {
+    const del = db.prepare(`
+      DELETE FROM employees WHERE id = ?
+    `);
+
+    const result = del.run(id);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    res.status(204).send();
+
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // - [ ] **Task 5 — Department Salary Pie Chart**
