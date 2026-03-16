@@ -8,7 +8,7 @@ const PORT = 3000;
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// - [ ] **Task 4 — Pagination**
+// - [x] **Task 4 — Pagination**
 //   Limit the employee table to 5 rows per page. 
 //   Add Previous / Next controls and a page indicator. Pagination should work together with search and department filter.
 app.get('/api/employees', (req, res) => {

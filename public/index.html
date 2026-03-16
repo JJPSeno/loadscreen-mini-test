@@ -646,7 +646,7 @@
     debounceTimer = setTimeout(loadEmployees, 250);
   });
 
-  document.getElementById('deptFilter').addEventListener('change', loadEmployees);
+  document.getElementById('deptFilter').addEventListener('change', () => loadEmployees(1));
 
   let selectedEmployee = undefined;
 
