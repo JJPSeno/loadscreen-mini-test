@@ -384,6 +384,7 @@
   let sortCol = 'id';
   let sortOrder = 'asc';
   let allEmployees = [];
+  let currentPage = {};
 
   function avatarColor(name) {
     let h = 0;
@@ -487,7 +488,10 @@
     const department = document.getElementById('deptFilter').value;
     const params = new URLSearchParams({ search, department, sort: sortCol, order: sortOrder });
     const res = await fetch(`/api/employees?${params}`);
-    allEmployees = await res.json();
+    const { data, meta } = await res.json();
+    allEmployees = data;
+    currentPage = meta;
+    console.log(allEmployees)
     updatePage()
   }
 
@@ -554,13 +558,12 @@
       }
       
       const newEmployee = await response.json();
-      allEmployees.push(newEmployee);
-      updatePage();
+      await loadEmployees();
       employeeFormModal.close();
     } else {
       // Update employee case
       alert('update');
-      updatePage();
+      await loadEmployees()
       employeeFormModal.close();
     }
     
