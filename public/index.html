@@ -199,6 +199,61 @@
       vertical-align: middle;
     }
 
+    .employee-row {
+      cursor: pointer;
+    }
+
+    .employee-row:hover {
+      background: #f5f7fa;
+    }
+
+    dialog {
+      padding: 1rem;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px;
+      max-width: 90vw;
+    }
+
+    dialog::backdrop {
+      background: rgba(0,0,0,0.45);
+    }
+
+    #employeeForm {
+      display: grid;
+      gap: 12px;
+    }
+
+    #employeeForm h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #0f3460;
+      margin-bottom: 4px;
+    }
+
+    #employeeForm label {
+      display: flex;
+      flex-direction: column;
+      font-size: 0.85rem;
+      font-weight: 600;
+      gap: 4px;
+    }
+
+    #employeeForm input {
+      padding: 8px 10px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #employeeForm input:focus {
+      border-color: #0f3460;
+    }
+
     .avatar {
       width: 36px;
       height: 36px;
@@ -362,9 +417,7 @@
           <input type="number" placeholder="1000.00" step="0.01" id="salary" name="salary" required />
         </label>
       </p>
-      <div>
-        <button type="submit" id="employeeFormSubmit">Submit</button>
-        <button id="employeeFormClose">Cancel</button>
+      <div id="modalActions" style="display: flex;">
       </div>
     </form>
   </dialog>
@@ -410,8 +463,9 @@
     return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0 });
   }
 
+  const tbody = document.getElementById('tableBody');
+
   function renderTable(employees) {
-    const tbody = document.getElementById('tableBody');
     document.getElementById('resultCount').textContent = `${employees.length} result${employees.length !== 1 ? 's' : ''}`;
 
     if (employees.length === 0) {
@@ -427,7 +481,7 @@
     }
 
     tbody.innerHTML = employees.map(emp => `
-      <tr>
+      <tr data-id="${emp.id}" class="employee-row">
         <td style="color:#aaa;font-size:0.82rem">#${emp.id}</td>
         <td>
           <div class="name-cell">
@@ -491,7 +545,6 @@
     const { data, meta } = await res.json();
     allEmployees = data;
     currentPage = meta;
-    console.log(allEmployees)
     updatePage()
   }
 
@@ -522,27 +575,56 @@
   const employeeFormModal = document.getElementById("employeeModal");
   const employeeForm = document.getElementById("employeeForm");
   const employeeOpenFormButton = document.getElementById("employeeOpenFormBtn");
-  const employeeFormHeader = document.getElementById("employeeFormHeader");
-  const employeeSubmitButton = document.getElementById("employeeFormSubmit");
-  const employeeCloseButton = document.getElementById("employeeFormClose");
+  
+  function openEmployeeForm(event, employee = undefined) {
+    event.preventDefault();
+    selectedEmployee = employee;
+    
+    const employeeFormHeader = document.getElementById("employeeFormHeader");
+    const form = document.getElementById("employeeForm");
+    const modalActions = document.getElementById("modalActions");
 
-  function openEmployeeForm() {
-    if(selectedEmployee === undefined) {
-      // Add employees case
-      employeeFormHeader.innerText = "Add Employee"
+    // Reset the actions
+    modalActions.innerHTML = "";
+
+    if (selectedEmployee === undefined) {
+      // Add employee
+      employeeFormHeader.innerText = "Add Employee";
+      form.reset();
+
+      modalActions.appendChild(createButton("Submit", "submit"));
+      modalActions.appendChild(createCancelButton());
+
     } else {
-      // Update employee case
-      employeeFormHeader.innerText = "Update Employee"
+      // Update employee
+      employeeFormHeader.innerText = "Update Employee";
+
+      form.name.value = employee.name;
+      form.department.value = employee.department;
+      form.position.value = employee.position;
+      form.email.value = employee.email;
+      form.phone.value = employee.phone;
+      form.hire_date.value = employee.hire_date;
+      form.salary.value = employee.salary;
+
+      modalActions.appendChild(createButton("Edit", "submit"));
+      modalActions.appendChild(createDeleteButton(employee.id));
+      modalActions.appendChild(createCancelButton());
     }
+
     employeeFormModal.showModal();
   }
 
   async function submitEmployeeForm(event) {
     event.preventDefault();
+
     const form = event.target;
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
-    if(selectedEmployee === undefined){
+
+    if (selectedEmployee === undefined) {
+
+      // Add employee
       const response = await fetch("/api/employees", {
         method: "POST",
         headers: {
@@ -553,31 +635,102 @@
 
       if (!response.ok) {
         alert("Failed to create employee");
-        employeeFormModal.close()
+        employeeFormModal.close();
         return;
       }
-      
-      const newEmployee = await response.json();
+
       await loadEmployees();
       employeeFormModal.close();
     } else {
-      // Update employee case
-      alert('update');
-      await loadEmployees()
-      employeeFormModal.close();
+
+      // Update employee
+      const response = await fetch(`/api/employees/${selectedEmployee.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) {
+        alert("Failed to update employee");
+        employeeFormModal.close();
+        return;
+      }
     }
+
+    selectedEmployee = undefined;
+    await loadEmployees();
+    employeeFormModal.close();
+  }
+
+  async function deleteEmployee(event, id) {
+    event.preventDefault();
     
+    const confirmed = confirm("Are you sure you want to delete this employee?");
+    if (!confirmed){
+      return;
+    }
+
+    const response = await fetch(`/api/employees/${id}`, {
+      method: "DELETE"
+    });
+
+    if (!response.ok) {
+      alert("Failed to delete employee");
+      employeeFormModal.close();
+      return;
+    }
+
+    await loadEmployees();
+    employeeFormModal.close();
   }
 
   function closeEmployeeForm(event) {
     event.preventDefault();
-    employeeFormModal.close()
+    selectedEmployee = undefined;
+    employeeFormModal.close();
   }
   
+  function openEmployeeFormById(event, id) {
+    const employee = allEmployees.find(e => e.id === id);
+    openEmployeeForm(event, employee);
+  }
+
   employeeForm.addEventListener('submit', submitEmployeeForm)
   employeeOpenFormButton.addEventListener('click', openEmployeeForm);
-  employeeCloseButton.addEventListener('click', closeEmployeeForm);
   
+  function createButton(text, type = "button") {
+    const btn = document.createElement("button");
+    btn.textContent = text;
+    btn.type = type;
+    return btn;
+  }
+
+  function createCancelButton() {
+    const btn = createButton("Cancel");
+    btn.addEventListener("click", closeEmployeeForm);
+    btn.style.marginLeft = "auto";
+    return btn;
+  }
+
+  function createDeleteButton(id) {
+    const btn = createButton("Delete");
+    btn.addEventListener("click", (event) => deleteEmployee(event, id));
+    btn.style.marginLeft = ".5rem";
+    btn.style.background = "#D32F2F";
+    return btn;
+  }
+
+  tbody.addEventListener("click", (e) => {
+    const row = e.target.closest("tr");
+    if (!row) {
+      return;
+    }
+    const id = Number(row.dataset.id);
+    openEmployeeFormById(e, id);
+  });
+
   updateSortHeaders();
   loadDepartments();
   loadEmployees();
