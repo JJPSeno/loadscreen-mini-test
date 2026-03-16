@@ -128,6 +128,23 @@
 
     select:focus { border-color: #0f3460; }
 
+    button {
+      color: white;
+      padding: 10px 14px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      background: #2196F3;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    button:active { 
+      background: #0f3460; 
+      color: gray;
+    }
+
     #resultCount {
       font-size: 0.85rem;
       color: #888;
@@ -267,6 +284,9 @@
   </div>
 
   <div class="toolbar">
+    <button id="employeeOpenFormBtn">
+      Add Employee
+    </button>
     <div class="search-wrap">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
@@ -297,6 +317,57 @@
     </table>
   </div>
 
+  <dialog id="employeeModal">
+    <form id="employeeForm">
+      <h1 id="employeeFormHeader"></h1>
+      <p>
+        <label for="name">
+          Name:
+          <input type="text" id="name" name="name" required />
+        </label>
+      </p>
+      <p>
+        <label for="department">
+          Department:
+          <input type="text" id="department" name="department" required />
+        </label>
+      </p>
+      <p>
+        <label for="position">
+          Position:
+          <input type="text" id="position" name="position"  required />
+        </label>
+      </p>
+      <p>
+        <label for="email">
+          Email:
+          <input type="email" id="email" name="email"  required />
+        </label>
+      </p>
+      <p>
+        <label for="phone">
+          Phone number:
+          <input type="text" id="phone" name="phone"  />
+        </label>
+      </p>
+      <p>
+        <label for="hire_date">
+          Hire Date:
+          <input type="date" id="hire_date" name="hire_date"  />
+        </label>
+      </p>
+      <p>
+        <label for="salary">
+          Salary (in $):
+          <input type="number" placeholder="1000.00" step="0.01" id="salary" name="salary" required />
+        </label>
+      </p>
+      <div>
+        <button type="submit" id="employeeFormSubmit">Submit</button>
+        <button id="employeeFormClose">Cancel</button>
+      </div>
+    </form>
+  </dialog>
 </div>
 
 <script>
@@ -399,19 +470,25 @@
     document.getElementById('statDepts').textContent = depts.length;
   }
 
+  function updatePage(){
+    const search = document.getElementById('searchInput').value;
+    const department = document.getElementById('deptFilter').value;
+    renderTable(allEmployees);
+
+    if (department === 'all' && !search) {
+      document.getElementById('statTotal').textContent = allEmployees.length;
+      const avg = allEmployees.reduce((s, e) => s + Number(e.salary), 0) / (allEmployees.length || 1);
+      document.getElementById('statSalary').textContent = '$' + Math.round(avg / 1000) + 'k';
+    }
+  }
+
   async function loadEmployees() {
     const search = document.getElementById('searchInput').value;
     const department = document.getElementById('deptFilter').value;
     const params = new URLSearchParams({ search, department, sort: sortCol, order: sortOrder });
     const res = await fetch(`/api/employees?${params}`);
     allEmployees = await res.json();
-    renderTable(allEmployees);
-
-    if (department === 'all' && !search) {
-      document.getElementById('statTotal').textContent = allEmployees.length;
-      const avg = allEmployees.reduce((s, e) => s + e.salary, 0) / (allEmployees.length || 1);
-      document.getElementById('statSalary').textContent = '$' + Math.round(avg / 1000) + 'k';
-    }
+    updatePage()
   }
 
   document.querySelectorAll('thead th[data-col]').forEach(th => {
@@ -436,6 +513,68 @@
 
   document.getElementById('deptFilter').addEventListener('change', loadEmployees);
 
+  let selectedEmployee = undefined;
+
+  const employeeFormModal = document.getElementById("employeeModal");
+  const employeeForm = document.getElementById("employeeForm");
+  const employeeOpenFormButton = document.getElementById("employeeOpenFormBtn");
+  const employeeFormHeader = document.getElementById("employeeFormHeader");
+  const employeeSubmitButton = document.getElementById("employeeFormSubmit");
+  const employeeCloseButton = document.getElementById("employeeFormClose");
+
+  function openEmployeeForm() {
+    if(selectedEmployee === undefined) {
+      // Add employees case
+      employeeFormHeader.innerText = "Add Employee"
+    } else {
+      // Update employee case
+      employeeFormHeader.innerText = "Update Employee"
+    }
+    employeeFormModal.showModal();
+  }
+
+  async function submitEmployeeForm(event) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    if(selectedEmployee === undefined){
+      const response = await fetch("/api/employees", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) {
+        alert("Failed to create employee");
+        employeeFormModal.close()
+        return;
+      }
+      
+      const newEmployee = await response.json();
+      allEmployees.push(newEmployee);
+      updatePage();
+      employeeFormModal.close();
+    } else {
+      // Update employee case
+      alert('update');
+      updatePage();
+      employeeFormModal.close();
+    }
+    
+  }
+
+  function closeEmployeeForm(event) {
+    event.preventDefault();
+    employeeFormModal.close()
+  }
+  
+  employeeForm.addEventListener('submit', submitEmployeeForm)
+  employeeOpenFormButton.addEventListener('click', openEmployeeForm);
+  employeeCloseButton.addEventListener('click', closeEmployeeForm);
+  
   updateSortHeaders();
   loadDepartments();
   loadEmployees();

@@ -6,7 +6,11 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 
+// - [ ] **Task 4 — Pagination**
+//   Limit the employee table to 5 rows per page. 
+//   Add Previous / Next controls and a page indicator. Pagination should work together with search and department filter.
 app.get('/api/employees', (req, res) => {
   const { search, department, sort = 'id', order = 'asc' } = req.query;
 
@@ -38,6 +42,65 @@ app.get('/api/employees', (req, res) => {
 app.get('/api/departments', (req, res) => {
   const departments = db.prepare('SELECT DISTINCT department FROM employees ORDER BY department').all();
   res.json(departments.map(d => d.department));
+});
+
+// - [x] **Task 1 — Add Employee**
+//   Create an "Add Employee" form that allows submitting a new employee 
+//   record to the database via a `POST /api/employees` endpoint.
+app.post('/api/employees', (req, res) => {
+  const employee = {
+    name: req.body.name,
+    department: req.body.department,
+    position: req.body.position,
+    email: req.body.email,
+    phone: req.body.phone,
+    hire_date: req.body.hire_date,
+    salary: req.body.salary
+  };
+  try {
+    const insert = db.prepare(`
+      INSERT INTO employees (name, department, position, email, phone, hire_date, salary)
+      VALUES (@name, @department, @position, @email, @phone, @hire_date, @salary)
+    `);
+    const result = insert.run(employee);
+    res.status(201).json({
+      id: result.lastInsertRowid,
+      ...employee
+    });
+  } catch (err) {
+    console.log(err)
+    switch (err.code) {
+      case 'SQLITE_CONSTRAINT_UNIQUE':
+        return res.status(409).json({
+          error: `Unique constraint failed on: ${err.message.split(': ')[1]}`
+        });
+      case 'SQLITE_CONSTRAINT_NOTNULL':
+        return res.status(400).json({
+          error: `Not Null constraint failed`
+        });
+    }
+    
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// - [ ] **Task 2 — Edit Employee**
+//   Add an "Edit" button on each row that opens a form pre-filled with the employee's current data. 
+//   Implement a `PUT /api/employees/:id` endpoint to save changes.
+app.put('/api/employees/:id', (req, res) => {
+  res.send("NOT IMPLEMENTED: Employee update PUT");
+});
+
+// - [ ] **Task 3 — Delete Employee**
+//   Add a "Delete" button on each row with a confirmation prompt. Implement a `DELETE /api/employees/:id` endpoint to remove the record.
+app.delete('/api/employees/:id', (req, res) => {
+  res.send("NOT IMPLEMENTED: Employee delete DELETE");
+});
+
+// - [ ] **Task 5 — Department Salary Pie Chart**
+//   Add a `GET /api/salary-by-department` endpoint that returns the total salary grouped by department. On the frontend, render a pie chart using only pure HTML5 Canvas (no external chart libraries) that visualises each department's share of the total salary. Display the chart on the employee directory page.
+app.get('/api/salary-by-department', (req, res) => {
+  res.send("NOT IMPLEMENTED: Salary by Department get GET");
 });
 
 app.listen(PORT, () => {
