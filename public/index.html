@@ -157,6 +157,7 @@
       border-radius: 12px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.08);
       overflow: hidden;
+      margin-bottom: 20px;
     }
 
     table {
@@ -275,6 +276,18 @@
     }
 
     #pagination button:disabled { opacity: 0.4; cursor: default; }
+
+    .canvas-wrap {
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      background-color: white;
+      text-align: center;
+    }
+
+    canvas {
+      width: 60%;
+      height: 450px;
+    }
 
     .avatar {
       width: 36px;
@@ -396,6 +409,10 @@
     </div>
   </div>
 
+  <div class="canvas-wrap">
+    <canvas id="pieCanvas"></canvas>
+  </div>
+
   <dialog id="employeeModal">
     <form id="employeeForm">
       <h1 id="employeeFormHeader"></h1>
@@ -464,6 +481,7 @@
   let currentMeta = {};
   let currentStats = {};
   let currentPage = 1;
+  let salaryByDepartment = [];
 
   function avatarColor(name) {
     let h = 0;
@@ -574,6 +592,92 @@
     loadEmployees(page);
   }
 
+  function renderPieChart(departmentSalaries){
+    const DEFAULT_COLOR = ['#e0e0e0', '#555'];
+    const pieCanvas = document.getElementById('pieCanvas');
+    const ctx = pieCanvas.getContext("2d");
+    const W = pieCanvas.width;
+    const H = pieCanvas.height;
+
+    ctx.clearRect(0, 0, W, H);
+
+    const salaryTotal = departmentSalaries.reduce((acc, element) => acc + element.total_salary, 0)
+    const legendWidth = 180;
+    const cx = (W - legendWidth) / 2;
+    const cy = H / 2;
+    const radius = Math.min(cx, cy) - 20;
+
+    let startAngle = -Math.PI / 2;
+
+    const slices = departmentSalaries.map(item => {
+      const sweep = (item.total_salary / salaryTotal) * 2 * Math.PI;
+      const colors = DEPT_COLORS[item.department] || DEFAULT_COLOR;
+      const slice = { ...item, sweep, startAngle, colors };
+      startAngle += sweep;
+      return slice;
+    });
+
+    slices.forEach(slice => {
+      const endAngle = slice.startAngle + slice.sweep;
+      const midAngle = slice.startAngle + slice.sweep / 2;
+
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius, slice.startAngle, endAngle);
+      ctx.closePath();
+      ctx.fillStyle = slice.colors[1];
+      ctx.fill();
+
+      // Slice border
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Percentage label — only draw if slice is big enough to fit text
+      const pct = (slice.total_salary / salaryTotal) * 100;
+      if (pct > 4) {
+        const labelR = radius * 0.65;
+        const lx = cx + Math.cos(midAngle) * labelR;
+        const ly = cy + Math.sin(midAngle) * labelR;
+
+        ctx.fillStyle = '#000';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${pct.toFixed(1)}%`, lx, ly);
+      }
+    });
+
+    const legendX = W - legendWidth + 10;
+    let legendY = 20;
+    const swatchSize = 12;
+    const lineHeight = 22;
+
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#333';
+    ctx.fillText('Departments', legendX, legendY);
+    legendY += lineHeight + 4;
+
+    slices.forEach(slice => {
+      const colors = slice.colors;
+      const label = slice.department || '(none)';
+      const pct = ((slice.total_salary / salaryTotal) * 100).toFixed(1);
+
+      ctx.fillStyle = colors[1];
+      ctx.beginPath();
+      ctx.roundRect(legendX, legendY - swatchSize / 2, swatchSize, swatchSize, 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#333';
+      ctx.font = '11px sans-serif';
+      ctx.fillText(`${label} (${pct}%)`, legendX + swatchSize + 6, legendY);
+
+      legendY += lineHeight;
+    });
+  }
+
   function updateSortHeaders() {
     document.querySelectorAll('thead th').forEach(th => {
       const col = th.dataset.col;
@@ -599,11 +703,17 @@
     document.getElementById('statDepts').textContent = depts.length;
   }
 
+  async function loadSalaryByDepartment() {
+    const res = await fetch('/api/salary-by-department');
+    salaryByDepartment = await res.json();
+  }
+
   function updatePage(){
     const search = document.getElementById('searchInput').value;
     const department = document.getElementById('deptFilter').value;
     renderTable(allEmployees);
     renderPagination(currentMeta);
+    renderPieChart(salaryByDepartment);
 
     if (department === 'all' && !search) {
       document.getElementById('statTotal').textContent = currentStats.totalEmployees;
@@ -723,6 +833,8 @@
       }
 
       await loadEmployees();
+      await loadDepartments();
+      await loadSalaryByDepartment();
       employeeFormModal.close();
     } else {
 
@@ -750,6 +862,8 @@
 
     selectedEmployee = undefined;
     await loadEmployees();
+    await loadDepartments();
+    await loadSalaryByDepartment();
     employeeFormModal.close();
   }
 
@@ -772,6 +886,8 @@
     }
 
     await loadEmployees();
+    await loadDepartments();
+    await loadSalaryByDepartment();
     employeeFormModal.close();
   }
 
@@ -822,6 +938,7 @@
 
   updateSortHeaders();
   loadDepartments();
+  loadSalaryByDepartment();
   loadEmployees();
 </script>
 
