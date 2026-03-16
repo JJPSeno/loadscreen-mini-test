@@ -112,7 +112,7 @@ app.post('/api/employees', (req, res) => {
   }
 });
 
-// - [ ] **Task 2 — Edit Employee**
+// - [x] **Task 2 — Edit Employee**
 //   Add an "Edit" button on each row that opens a form pre-filled with the employee's current data. 
 //   Implement a `PUT /api/employees/:id` endpoint to save changes.
 app.put('/api/employees/:id', (req, res) => {
@@ -165,7 +165,7 @@ app.put('/api/employees/:id', (req, res) => {
   }
 });
 
-// - [ ] **Task 3 — Delete Employee**
+// - [x] **Task 3 — Delete Employee**
 //   Add a "Delete" button on each row with a confirmation prompt. Implement a `DELETE /api/employees/:id` endpoint to remove the record.
 app.delete('/api/employees/:id', (req, res) => {
   const id = req.params.id;
