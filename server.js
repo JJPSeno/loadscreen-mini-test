@@ -12,31 +12,60 @@ app.use(express.json());
 //   Limit the employee table to 5 rows per page. 
 //   Add Previous / Next controls and a page indicator. Pagination should work together with search and department filter.
 app.get('/api/employees', (req, res) => {
-  const { search, department, sort = 'id', order = 'asc' } = req.query;
+  const { search, department, sort = 'id', order = 'asc', page = 1, limit = 5 } = req.query;
 
   const allowedSort = ['id', 'name', 'department', 'position', 'hire_date', 'salary'];
   const allowedOrder = ['asc', 'desc'];
   const sortCol = allowedSort.includes(sort) ? sort : 'id';
   const sortOrder = allowedOrder.includes(order) ? order : 'asc';
+  const pageNum = parseInt(page);
+  const limitNum = parseInt(limit);
+  const offset = (pageNum - 1) * limitNum;
 
-  let query = 'SELECT * FROM employees WHERE 1=1';
+  let where = 'WHERE 1=1';
   const params = [];
 
   if (search) {
-    query += ' AND (name LIKE ? OR position LIKE ? OR email LIKE ?)';
+    where += ' AND (name LIKE ? OR position LIKE ? OR email LIKE ?)';
     const like = `%${search}%`;
     params.push(like, like, like);
   }
 
   if (department && department !== 'all') {
-    query += ' AND department = ?';
+    where += ' AND department = ?';
     params.push(department);
   }
 
-  query += ` ORDER BY ${sortCol} ${sortOrder.toUpperCase()}`;
+  const dataQuery = `
+    SELECT * FROM employees
+    ${where}
+    ORDER BY ${sortCol} ${sortOrder.toUpperCase()}
+    LIMIT ? OFFSET ?
+  `;
 
-  const employees = db.prepare(query).all(...params);
-  res.json(employees);
+  const employees = db.prepare(dataQuery).all(...params, limitNum, offset);
+
+  const countQuery = `
+    SELECT COUNT(*) as total
+    FROM employees
+    ${where}
+  `;
+
+  const { total } = db.prepare(countQuery).get(...params);
+  const totalPages = Math.ceil(total / limitNum);
+  res.json(
+    {
+      data: employees,
+      meta: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: totalPages,
+        hasNext: pageNum < totalPages,
+        hasPrev: pageNum > 1
+      }
+    }
+  );
 });
 
 app.get('/api/departments', (req, res) => {
