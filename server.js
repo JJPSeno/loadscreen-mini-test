@@ -51,11 +51,20 @@ app.get('/api/employees', (req, res) => {
     ${where}
   `;
 
+  const statsQuery = `
+    SELECT 
+      COUNT(*) as totalEmployees,
+      ROUND(AVG(salary), 2) as avgSalary
+    FROM employees
+  `;
+  
   const { total } = db.prepare(countQuery).get(...params);
+  const stats = db.prepare(statsQuery).get();
   const totalPages = Math.ceil(total / limitNum);
   res.json(
     {
       data: employees,
+      stats: stats,
       meta: {
         page: pageNum,
         limit: limitNum,

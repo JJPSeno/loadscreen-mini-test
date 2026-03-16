@@ -259,6 +259,23 @@
       border-color: #0f3460;
     }
 
+    #pagination{
+      display: flex;
+      justify-content: center;
+      margin: 1rem 0;
+    } 
+
+    #pagination button {
+      color: gray;
+      padding: 4px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: none;
+      cursor: pointer;
+    }
+
+    #pagination button:disabled { opacity: 0.4; cursor: default; }
+
     .avatar {
       width: 36px;
       height: 36px;
@@ -375,6 +392,8 @@
         <tr id="loadingRow"><td colspan="6">Loading employees…</td></tr>
       </tbody>
     </table>
+    <div id="pagination">
+    </div>
   </div>
 
   <dialog id="employeeModal">
@@ -442,7 +461,9 @@
   let sortCol = 'id';
   let sortOrder = 'asc';
   let allEmployees = [];
-  let currentPage = {};
+  let currentMeta = {};
+  let currentStats = {};
+  let currentPage = 1;
 
   function avatarColor(name) {
     let h = 0;
@@ -505,6 +526,54 @@
     `).join('');
   }
 
+  function renderPagination(meta) {
+    currentPage = meta.page;
+
+    let paginator = document.getElementById('pagination');
+    if (!paginator) {
+      paginator = document.createElement('div');
+      paginator.id = 'pagination';
+      paginator.style.cssText = 'display:flex;align-items:center;gap:8px;justify-content:center;margin-top:16px';
+      document.getElementById('resultCount').closest('div').after(paginator);
+    }
+
+    const pages = getPageNumbers(meta.page, meta.totalPages);
+
+    paginator.innerHTML = `
+      <button onclick="goToPage(${meta.page - 1})" ${!meta.hasPrev ? 'disabled' : ''}>‹ Prev</button>
+      ${pages.map(p =>
+        p === '...'
+          ? `<span style="padding:0 4px">…</span>`
+          : `<button onclick="goToPage(${p})" ${p === meta.page ? 'class="active"' : ''}>${p}</button>`
+      ).join('')}
+      <button onclick="goToPage(${meta.page + 1})" ${!meta.hasNext ? 'disabled' : ''}>Next ›</button>
+      <span style="margin-left:8px;color:#888;font-size:0.85rem">
+        Page ${meta.page} of ${meta.totalPages}
+      </span>
+    `;
+  }
+
+  function getPageNumbers(current, total) {
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+    const pages = new Set([1, total, current, current - 1, current + 1].filter(p => p >= 1 && p <= total));
+    const sorted = [...pages].sort((a, b) => a - b);
+
+    const result = [];
+    let prev = null;
+    for (const p of sorted) {
+      if (prev !== null && p - prev > 1) result.push('...');
+      result.push(p);
+      prev = p;
+    }
+    return result;
+  }
+
+  function goToPage(page) {
+    currentPage = page;
+    loadEmployees(page);
+  }
+
   function updateSortHeaders() {
     document.querySelectorAll('thead th').forEach(th => {
       const col = th.dataset.col;
@@ -534,22 +603,26 @@
     const search = document.getElementById('searchInput').value;
     const department = document.getElementById('deptFilter').value;
     renderTable(allEmployees);
+    renderPagination(currentMeta);
 
     if (department === 'all' && !search) {
-      document.getElementById('statTotal').textContent = allEmployees.length;
-      const avg = allEmployees.reduce((s, e) => s + Number(e.salary), 0) / (allEmployees.length || 1);
-      document.getElementById('statSalary').textContent = '$' + Math.round(avg / 1000) + 'k';
+      document.getElementById('statTotal').textContent = currentStats.totalEmployees;
+      document.getElementById('statSalary').textContent = '$' + Math.round(currentStats.avgSalary / 1000) + 'k';
     }
+
+    document.getElementById('resultCount').textContent = `${currentMeta.total} result${currentMeta.total !== 1 ? 's' : ''}`;
   }
 
-  async function loadEmployees() {
+  async function loadEmployees(page = 1) {
     const search = document.getElementById('searchInput').value;
     const department = document.getElementById('deptFilter').value;
-    const params = new URLSearchParams({ search, department, sort: sortCol, order: sortOrder });
+    const params = new URLSearchParams({ search, department, sort: sortCol, order: sortOrder, page });
     const res = await fetch(`/api/employees?${params}`);
-    const { data, meta } = await res.json();
+    const { data, stats, meta } = await res.json();
     allEmployees = data;
-    currentPage = meta;
+    currentMeta = meta;
+    currentStats = stats;
+    currentPage = meta.page;
     updatePage()
   }
 
